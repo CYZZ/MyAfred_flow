@@ -83,6 +83,34 @@ def trans_from_zh_en(language,word):
     subtitle += ' --end'
     return title, subtitle
 
+def baidu_trans(word):
+    '''
+    百度翻译，自动识别中英文
+    支持翻译单词
+    '''
+    def getArgs(result, subtitle):
+        return {
+            'title': result,
+            'subtitle': subtitle,
+            "valid": True,
+            'arg': result
+        }
+    url = "https://fanyi.baidu.com/sug"
+    params = {"kw": word}
+    # headers = {
+    #     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.134 Safari/537.36 Edg/103.0.1264.77"
+    # }
+    headers = {}
+    json = requests.get(url, params=params, headers=headers).json()
+    data = json["data"]
+    result = [getArgs(obj["k"], obj["v"]) for obj in data]
+    # result = [ getArgs("test",str(json))]
+    # print(result)
+    wf = Workflow3()
+    for item in result:
+        wf.add_item(**item)
+    wf.send_feedback()
+
 
 def generate_feedback_results(judge_code,result,subtitle):
     wf = Workflow3()
@@ -107,6 +135,9 @@ def generate_feedback_results(judge_code,result,subtitle):
 def main():
     language = sys.argv[1]
     word = sys.argv[2]
+    if language == "Baidu":
+        baidu_trans(word)
+        return
     value, subtitle = trans_from_zh_en(language,word)
     generate_feedback_results(1,value,subtitle)
     # if md5_value.isdigit():

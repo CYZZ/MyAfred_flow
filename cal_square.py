@@ -5,6 +5,7 @@
 # python2.7
 
 from datetime import datetime
+from hashlib import md5
 import time
 import requests
 import re
@@ -118,6 +119,34 @@ def baidu_trans(word):
     wf.send_feedback()
 
 
+def baidu_sentence_translate(f, word):
+    appid = "20220811001303267"
+    salt = "1435660288"
+    key = "78BbFaUdV8LroJwnbzw8"
+    sign = md5(appid+word+salt+key).hexdigest()
+    url = "https://fanyi-api.baidu.com/api/trans/vip/translate"
+    params = {
+        "from": f,
+        "to": "zh" if f == "en" else "en",
+        "q": word,
+        "appid": appid,
+        "salt": salt,
+        "sign": sign
+    }
+    result = requests.get(url, params=params).json()
+    title = result["trans_result"][0]["dst"]
+    item = {
+        'title': title,
+        'subtitle': "来自百度api翻译😄",
+        "valid": True,
+        'arg': title
+    }
+    # print("item=",item)
+    wf = Workflow3()
+    wf.add_item(**item)
+    wf.send_feedback()
+
+
 def generate_feedback_results(judge_code,result,subtitle):
     wf = Workflow3()
     if(judge_code == 1):
@@ -143,6 +172,11 @@ def main():
     word = sys.argv[2]
     if language == "Baidu":
         baidu_trans(word)
+        return
+    # 百度翻译句子
+    baidu_sentence = sys.argv[3]
+    if baidu_sentence == "Baidu":
+        baidu_sentence_translate(language, word)
         return
     if not (word.endswith("。") or word.endswith(".")):
         generate_feedback_results(0,"请输入句号","")

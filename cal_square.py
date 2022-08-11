@@ -47,7 +47,8 @@ def set_params(language,word):
                     ],
                     "raw_en_context_before": [],
                     "raw_en_context_after": [],
-                    "preferred_num_beams": 4
+                    "preferred_num_beams": 4,
+                    "quality": "fast"
                 }
             ],
             "lang": {
@@ -70,8 +71,13 @@ def trans_from_zh_en(language,word):
     获取翻译结果
     '''
     url = "https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs"
+    headers = {
+        "cookie": "dapSid=%7B%22sid%22%3A%2259cd9e6c-0222-427b-870f-9612d4ead25d%22%2C%22lastUpdate%22%3A1660220876%7D",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) / DeepL macOS 3.2.157164",
+        "referer": "https://www.deepl.com/",
+    }
     params = set_params(language,word)
-    json_data = S.post(url=url, json=params).json()
+    json_data = S.post(url=url, json=params,headers=headers).json()
     beams = json_data["result"]["translations"][0]["beams"]
     title = beams.pop(0)["sentences"][0]["text"]
     subtitle =  r'推荐：'
@@ -137,6 +143,9 @@ def main():
     word = sys.argv[2]
     if language == "Baidu":
         baidu_trans(word)
+        return
+    if not (word.endswith("。") or word.endswith(".")):
+        generate_feedback_results(0,"请输入句号","")
         return
     value, subtitle = trans_from_zh_en(language,word)
     generate_feedback_results(1,value,subtitle)

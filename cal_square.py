@@ -1,8 +1,5 @@
 #coding:utf-8
-# use cmd5 api to decode md5
-# python script for alfred workflow
-# author: LANVNAL
-# python2.7
+# 需要安装依赖库 pip3 install alfred-workflow-tddschn
 
 from datetime import datetime
 from hashlib import md5
@@ -12,6 +9,7 @@ import re
 import sys
 # from alfred.feedback import Feedback
 from workflow import Workflow3
+from youdao_test import youdao_translate
 
 S = requests.Session()
 error_dict = {"0" : "解密失败", "-1" : "无效的用户名密码", "-2" :"余额不足", "-3" : "解密服务器故障", "-4" : "不识别的密文", "-7" :"不支持的类型", "-8" :"api权限被禁止", "-999" :"其它错误"}
@@ -79,6 +77,7 @@ def trans_from_zh_en(language,word):
     }
     params = set_params(language,word)
     json_data = S.post(url=url, json=params,headers=headers).json()
+    # print("json_data=",json_data)
     beams = json_data["result"]["translations"][0]["beams"]
     title = beams.pop(0)["sentences"][0]["text"]
     subtitle =  r'推荐：'
@@ -113,6 +112,13 @@ def baidu_trans(word):
     result = [getArgs(obj["k"], obj["v"]) for obj in data]
     # result = [ getArgs("test",str(json))]
     # print(result)
+    if len(result) == 0:
+        # 如果单词翻译获取的结果为空就使用句子翻译
+        if regular_is_chinese(u'{}'.format(word)):
+            baidu_sentence_translate('zh', word)
+        else:
+            baidu_sentence_translate('en', word)
+        return
     wf = Workflow3()
     for item in result:
         wf.add_item(**item)
@@ -123,7 +129,7 @@ def baidu_sentence_translate(f, word):
     appid = "20220811001303267"
     salt = "1435660288"
     key = "78BbFaUdV8LroJwnbzw8"
-    sign = md5(appid+word+salt+key).hexdigest()
+    sign = md5((appid+word+salt+key).encode('utf-8')).hexdigest()
     url = "https://fanyi-api.baidu.com/api/trans/vip/translate"
     params = {
         "from": f,
@@ -166,6 +172,12 @@ def generate_feedback_results(judge_code,result,subtitle):
     wf.send_feedback()
 
 
+def regular_is_chinese(word):
+    # 至少一个汉字
+    line = u"[\u4e00-\u9fa5]+"
+    zhPattern = re.compile(line)
+    result = zhPattern.search(word)
+    return not (result is None)
 
 def main():
     language = sys.argv[1]
@@ -177,6 +189,10 @@ def main():
     baidu_sentence = sys.argv[3]
     if baidu_sentence == "Baidu":
         baidu_sentence_translate(language, word)
+        return
+    if baidu_sentence == "youdao":
+        title, isWord = youdao_translate(language, word)
+        generate_feedback_results(1, title, isWord)
         return
     if not (word.endswith("。") or word.endswith(".")):
         generate_feedback_results(0,"请输入句号","")

@@ -83,7 +83,7 @@ def trans_from_zh_en(language,word):
     subtitle =  r'推荐：'
     for beam in beams:
         subtitle += ' /'
-        subtitle += beam["sentences"][0]["text"].encode('utf8')
+        subtitle += beam["sentences"][0]["text"]
         # abc = ""
         # abc.encode("utf-8")
     subtitle += ' --end'

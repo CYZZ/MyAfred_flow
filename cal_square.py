@@ -12,23 +12,27 @@ from workflow import Workflow3
 from youdao_test import youdao_translate
 
 S = requests.Session()
-error_dict = {"0" : "解密失败", "-1" : "无效的用户名密码", "-2" :"余额不足", "-3" : "解密服务器故障", "-4" : "不识别的密文", "-7" :"不支持的类型", "-8" :"api权限被禁止", "-999" :"其它错误"}
+error_dict = {"0": "解密失败", "-1": "无效的用户名密码", "-2": "余额不足", "-3": "解密服务器故障", "-4": "不识别的密文", "-7": "不支持的类型", "-8": "api权限被禁止", "-999": "其它错误"}
 
 REGEXP_MD5 = r'^[0-9a-fA-F]{16,32}$'
 
-def set_params(language,word):
+
+def set_params(language, word):
     source_lang = language
     target_lang = "EN" if language == "ZH" else "ZH"
 
     commonJobParams = {
-        "regionalVariant": "en-US",
+        # "regionalVariant": "en-US",
+        "mode": "translate",
         "browserType": 1
     }
     if target_lang == "ZH":
         commonJobParams = {
+            # "regionalVariant": "en-US",
+            "mode": "translate",
             "browserType": 1
         }
-    
+
     now = time.mktime(datetime.now().timetuple())
     return {
 	"jsonrpc": "2.0",
@@ -47,7 +51,7 @@ def set_params(language,word):
                     "raw_en_context_before": [],
                     "raw_en_context_after": [],
                     "preferred_num_beams": 4,
-                    "quality": "fast"
+                    # "quality": "fast"
                 }
             ],
             "lang": {
@@ -65,7 +69,8 @@ def set_params(language,word):
 	"id": 89050025
     }
 
-def trans_from_zh_en(language,word):
+
+def trans_from_zh_en(language, word):
     '''
     获取翻译结果
     '''
@@ -75,12 +80,13 @@ def trans_from_zh_en(language,word):
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) / DeepL macOS 3.2.157164",
         "referer": "https://www.deepl.com/",
     }
-    params = set_params(language,word)
-    json_data = S.post(url=url, json=params,headers=headers).json()
+    params = set_params(language, word)
+    # print("params=",params)
+    json_data = S.post(url=url, json=params, headers=headers).json()
     # print("json_data=",json_data)
     beams = json_data["result"]["translations"][0]["beams"]
     title = beams.pop(0)["sentences"][0]["text"]
-    subtitle =  r'推荐：'
+    subtitle = r'推荐：'
     for beam in beams:
         subtitle += ' /'
         subtitle += beam["sentences"][0]["text"]
@@ -88,6 +94,7 @@ def trans_from_zh_en(language,word):
         # abc.encode("utf-8")
     subtitle += ' --end'
     return title, subtitle
+
 
 def baidu_trans(word):
     '''
@@ -153,21 +160,21 @@ def baidu_sentence_translate(f, word):
     wf.send_feedback()
 
 
-def generate_feedback_results(judge_code,result,subtitle):
+def generate_feedback_results(judge_code, result, subtitle):
     wf = Workflow3()
     if(judge_code == 1):
         kwargs = {
-                    'title': result,
-                    'subtitle': subtitle,
-                    "valid": True,
-                    'arg': result
-                }
+            'title': result,
+            'subtitle': subtitle,
+            "valid": True,
+            'arg': result
+        }
     else:
         kwargs = {
-                    'title': result,
-                    'subtitle': '' ,
-                    'valid': False
-                }
+            'title': result,
+            'subtitle': '',
+            'valid': False
+        }
     wf.add_item(**kwargs)
     wf.send_feedback()
 
@@ -178,6 +185,7 @@ def regular_is_chinese(word):
     zhPattern = re.compile(line)
     result = zhPattern.search(word)
     return not (result is None)
+
 
 def main():
     language = sys.argv[1]
@@ -194,16 +202,15 @@ def main():
         title, isWord = youdao_translate(language, word)
         generate_feedback_results(1, title, isWord)
         return
-    if not (word.endswith("。") or word.endswith(".")):
-        generate_feedback_results(0,"请输入句号","")
+    if not word.endswith(("。", "？", "!", ".", "?")):
+        generate_feedback_results(0, "请输入结束符: . 。！？?", "")
         return
-    value, subtitle = trans_from_zh_en(language,word)
-    generate_feedback_results(1,value,subtitle)
+    value, subtitle = trans_from_zh_en(language, word)
+    generate_feedback_results(1, value, subtitle)
     # if md5_value.isdigit():
     #     generate_feedback_results(1,"123")
     # else:
     #     generate_feedback_results(0,"请输入数字。")
-
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ from lxml import etree
 import requests
 import aiohttp
 import asyncio
+from aiohttp import ClientSession
+from hashlib import md5
 from workflow import Workflow3
 import sys
 import time
@@ -12,12 +14,32 @@ async def request_with_aio(url, headers):
     async with aiohttp.ClientSession() as session:
         async with session.get(url=url, headers=headers, ssl=False) as response:
             text = await response.text()
-        return text
+            return text
 
 
 def get_html_string(url, headers):
     return asyncio.run(request_with_aio(url, headers))
 
+
+async def translator(word: str, f="en"):
+    appid = "20220811001303267"
+    salt = "1435660288"
+    key = "78BbFaUdV8LroJwnbzw8"
+    sign = md5((appid+word+salt+key).encode('utf-8')).hexdigest()
+    url = "https://fanyi-api.baidu.com/api/trans/vip/translate"
+    params = {
+        "from": f,
+        "to": "zh" if f == "en" else "en",
+        "q": word,
+        "appid": appid,
+        "salt": salt,
+        "sign": sign
+    }
+    async with ClientSession() as session:
+        async with session.get(url=url, params=params) as response:
+            response_data = await response.json()
+            # print("responsedst=",response_data["trans_result"][0]["dst"])
+            return response_data["trans_result"][0]["dst"]
 
 def my_workflow(func):
     def wrapper(*args, **kwargs):
@@ -25,9 +47,10 @@ def my_workflow(func):
         page_text = text
         # 数据解析
         tree = etree.HTML(page_text)
-        difinition_tr_list = tree.xpath('//*[@id="content-body"]/div[1]/div[3]/div/table[2]/tbody/tr')
+        difinition_tr_list = tree.xpath('//*[@id="content-body"]/div[1]/div[3]/div/table/tbody/tr')
 
         wf = Workflow3()
+        items = []
         for tr in difinition_tr_list:
             term = tr.xpath('td[@class="tal tm fsl"]/a/text()')[0]
             definition = tr.xpath('td[@class="tal dx fsl"]/p[@class="desc"]/text()')[0]
@@ -40,6 +63,19 @@ def my_workflow(func):
                 "valid": True,
                 'arg': definition,
             }
+            items.append(item)
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError as e:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        tasks = [asyncio.ensure_future(translator(item["title"])) for item in items[0:10]]
+        # loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(asyncio.gather(*tasks))
+        loop.close()
+        for idx, item in enumerate(items):
+            if idx < len(result):
+                item['subtitle'] = item['subtitle'] + ":" + result[idx]
             wf.add_item(**item)
         wf.send_feedback()
         return text
